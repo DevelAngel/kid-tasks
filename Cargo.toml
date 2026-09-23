@@ -9,7 +9,7 @@ lto = true
 opt-level = 'z'
 
 [workspace.package]
-version = "0.23.0"
+version = "0.23.1"
 edition = "2024"
 rust-version = "1.88.0"
 authors = ["Angelos Drossos"]
