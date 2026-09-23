@@ -11,12 +11,6 @@ async fn enable_edit_mode(world: &mut AppWorld) -> Result<()> {
     Ok(())
 }
 
-#[when("I tap Add Task")]
-async fn tap_add_task(world: &mut AppWorld) -> Result<()> {
-    let button = world.http.find(By::Testid("add-task-button")).await?;
-    button.click().await?;
-    Ok(())
-}
 
 #[when(expr = "I type {string} and submit")]
 async fn type_and_submit(world: &mut AppWorld, text: String) -> Result<()> {
@@ -66,6 +60,26 @@ async fn add_task_input_in_viewport(world: &mut AppWorld) -> Result<()> {
     assert!(in_viewport, "Add Task input is not visible in the viewport");
     Ok(())
 }
+
+#[then("the Add Task input has focus")]
+async fn add_task_input_has_focus(world: &mut AppWorld) -> Result<()> {
+    let input = world
+        .http
+        .query(By::Css("input[placeholder='New task…']"))
+        .first()
+        .await?;
+    let focused: bool = world
+        .http
+        .execute(
+            "return document.activeElement === arguments[0];",
+            vec![input.to_json()?],
+        )
+        .await?
+        .convert()?;
+    assert!(focused, "Add Task input does not have focus");
+    Ok(())
+}
+
 
 #[then("no Add Task error is shown")]
 async fn no_add_task_error(world: &mut AppWorld) -> Result<()> {

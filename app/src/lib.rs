@@ -987,6 +987,9 @@ fn TaskList() -> impl IntoView {
                         </button>
                     </div>
                 </header>
+                <Show when=move || edit_mode.get()>
+                    <AddTaskForm on_add=move |summary: String| { add_task.dispatch(summary); } current_view=current_view error=add_task_error/>
+                </Show>
                 // Filter panel
                 {move || filter_open.get().then(|| {
                     let view = current_view.get();
@@ -1425,9 +1428,6 @@ fn TaskList() -> impl IntoView {
                         </ErrorBoundary>
                     </Transition>
                 </div>
-                <Show when=move || edit_mode.get()>
-                    <AddTaskForm on_add=move |summary: String| { add_task.dispatch(summary); } current_view=current_view error=add_task_error/>
-                </Show>
                 <footer class="py-4 text-center text-xs text-slate-600 select-none" title="keep it done">
                     {concat!("kid ", env!("CARGO_PKG_VERSION"))}
                 </footer>
@@ -1449,10 +1449,23 @@ fn TaskList() -> impl IntoView {
 }
 
 #[component]
-fn AddTaskForm(#[prop(into)] on_add: UnsyncCallback<String>, current_view: RwSignal<View>, error: RwSignal<Option<String>>) -> impl IntoView {
-    let expanded = RwSignal::new(false);
+fn AddTaskForm(
+    #[prop(into)] on_add: UnsyncCallback<String>,
+    current_view: RwSignal<View>,
+    error: RwSignal<Option<String>>,
+) -> impl IntoView {
     let value = RwSignal::new(String::new());
     let input_ref = NodeRef::<leptos::html::Input>::new();
+
+    Effect::new(move || {
+        if input_ref.get().is_some() {
+            error.set(None);
+            current_view.set(View::AllOpen);
+            if let Some(el) = input_ref.get() {
+                let _ = el.focus();
+            }
+        }
+    });
 
     let submit = move || {
         let v = value.get_untracked().trim().to_string();
@@ -1460,68 +1473,30 @@ fn AddTaskForm(#[prop(into)] on_add: UnsyncCallback<String>, current_view: RwSig
             on_add.run(v);
             value.set(String::new());
         }
-        expanded.set(false);
     };
-
-    Effect::new(move || {
-        if expanded.get() {
-            // The view switch triggers an async Resource reload
-            // (server round-trip + Transition re-render). Delay the
-            // scroll so the new task list is in the DOM first.
-            set_timeout(move || {
-                if let Some(el) = input_ref.get() {
-                    el.scroll_into_view();
-                    let _ = el.focus();
-                }
-            }, std::time::Duration::from_millis(100));
-        }
-    });
 
     view! {
         <div class="border-t border-slate-700">
-            {move || if expanded.get() {
-                Either::Left(view! {
-                    <input
-                        node_ref=input_ref
-                        type="text"
-                        class="w-full bg-slate-700 text-slate-100 rounded-lg px-6 py-4 border border-amber-500 focus:outline-none placeholder-slate-400 text-base"
-                        placeholder="New task…"
-                        prop:value=move || value.get()
-                        on:input=move |ev| value.set(event_target_value(&ev))
-                        on:keydown=move |ev| {
-                            if ev.key() == key::ENTER {
-                                ev.prevent_default();
-                                submit();
-                            } else if ev.key() == key::ESCAPE {
-                                ev.prevent_default();
-                                value.set(String::new());
-                                expanded.set(false);
-                            }
-                        }
-                        on:blur=move |_| submit()
-                    />
-                })
-            } else {
-                Either::Right(view! {
-                    <div>
-                        {move || error.get().map(|msg| view! {
-                            <div class="px-6 py-2 text-xs text-red-400" data-testid="add-task-error">{msg}</div>
-                        })}
-                        <button
-                            type="button"
-                            class="w-full flex items-center justify-center text-slate-400 hover:text-amber-400 transition-colors py-3"
-                            data-testid="add-task-button"
-                            on:click=move |_| {
-                                error.set(None);
-                                current_view.set(View::AllOpen);
-                                expanded.set(true);
-                            }
-                        >
-                            <span class="text-base">"Add Task"</span>
-                        </button>
-                    </div>
-                })
-            }}
+            {move || error.get().map(|msg| view! {
+                <div class="px-6 py-2 text-xs text-red-400" data-testid="add-task-error">{msg}</div>
+            })}
+            <input
+                node_ref=input_ref
+                type="text"
+                class="w-full bg-slate-700 text-slate-100 rounded-lg px-6 py-4 border border-amber-500 focus:outline-none placeholder-slate-400 text-base"
+                placeholder="New task…"
+                prop:value=move || value.get()
+                on:input=move |ev| value.set(event_target_value(&ev))
+                on:keydown=move |ev| {
+                    if ev.key() == key::ENTER {
+                        ev.prevent_default();
+                        submit();
+                    } else if ev.key() == key::ESCAPE {
+                        ev.prevent_default();
+                        value.set(String::new());
+                    }
+                }
+            />
         </div>
     }
 }
