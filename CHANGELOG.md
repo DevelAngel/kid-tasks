@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.23.1](https://github.com/DevelAngel/keep-it-done/compare/v0.23.0..v0.23.1) - 2026-09-23
+
+### Bug Fixes
+
+- switch start and due dates - ([02efb5d](https://github.com/DevelAngel/keep-it-done/commit/02efb5d16951e61f3531a54a7b66ad0adac2f0de)) - Angelos Drossos
+- move add task field to top - ([1ae851c](https://github.com/DevelAngel/keep-it-done/commit/1ae851cdf48bda9962ce5464d0f89efaa0441aea)) - Angelos Drossos
+
+---
 ## [0.23.0](https://github.com/DevelAngel/keep-it-done/compare/v0.22.0..v0.23.0) - 2026-08-21
 
 ### Bug Fixes
