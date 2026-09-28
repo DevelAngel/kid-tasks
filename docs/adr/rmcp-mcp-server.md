@@ -73,12 +73,13 @@ set to anything, including impersonating a different assistant. MCP's
 the client's own runtime and thus just as freely claimed — no better
 than the old flag.
 
-Instead, both halves of the actor string (`<client_id>:<on_behalf_of>`,
+Instead, both halves of the actor string (`<name>:<on_behalf_of>`,
 see `docs/concepts/author-tracking.md`) are fixed server-side, per
-OAuth client, in `--mcp-clients-file`: `client_id` is derived from that
-client's `name` (optionally prefixed, e.g. `ai:claude-desktop` vs.
-`matrix-relay` — not every client is an AI assistant), and
-`on_behalf_of` names the human that client acts for. `validate_access_token`
+OAuth client, in `--mcp-clients-file`: `name` (optionally prefixed,
+e.g. `ai:claude-desktop` vs. `matrix-relay` — not every client is an
+AI assistant) is configured separately from the `client-id` the client
+authenticates with, and `on_behalf_of` names the human that client
+acts for. `validate_access_token`
 stashes both in the request's extensions after authenticating the
 client, and `McpService::actor` reads them back from there; neither is
 a tool parameter, so no client can claim to be someone else or act on
