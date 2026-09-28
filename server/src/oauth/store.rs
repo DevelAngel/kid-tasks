@@ -39,7 +39,7 @@ pub struct McpOAuthStore {
     base_url: Url,
     clients: Arc<RwLock<HashMap<ClientId, OAuthClientConfig>>>,
     /// Actor-string components for each client, keyed by the same
-    /// `ClientId` as `clients`. Kept separate since neither is part of the
+    /// `ClientId` as `clients`. Kept separate since none of it is part of the
     /// OAuth protocol (`OAuthClientConfig`), just our own configuration.
     actors: Arc<RwLock<HashMap<ClientId, ActorConfig>>>,
     auth_sessions: Arc<RwLock<HashMap<AuthCode, AdditionalData>>>,
@@ -52,13 +52,14 @@ pub struct McpOAuthStore {
 pub struct ClientId(String);
 
 /// Actor-string components of a client's `--mcp-clients-file` entry:
-/// `prefix` (e.g. distinguishing AI assistants) and the human it acts on
-/// behalf of. Neither is part of the OAuth client_id it authenticates
-/// with - both are stashed into request extensions by
+/// `name`, `prefix` (e.g. distinguishing AI assistants) and the human it
+/// acts on behalf of. None of them is the OAuth client_id it authenticates
+/// with - all are stashed into request extensions by
 /// [`crate::oauth::validate_access_token`] alongside [`ClientId`], so
-/// handlers don't need to trust a tool parameter for either.
-#[derive(Clone, Debug, Default, PartialEq)]
+/// handlers don't need to trust a tool parameter for any of them.
+#[derive(Clone, Debug, PartialEq)]
 pub struct ActorConfig {
+    pub name: String,
     pub prefix: Option<ClientPrefix>,
     /// `None` marks the client read-only: with no human to attribute a
     /// change to, mutating tools must reject it (see [`OnBehalfOf`]).
@@ -71,6 +72,12 @@ pub struct ActorConfig {
 #[derive(Clone, Debug, Deref, Display, Eq, From, Hash, PartialEq)]
 #[from(forward)]
 pub struct OnBehalfOf(String);
+
+/// Name of a client in its actor string, per its `--mcp-clients-file`
+/// entry. Distinct from [`ClientId`], which is only used to authenticate.
+#[derive(Clone, Debug, Deref, Display, Eq, From, Hash, PartialEq)]
+#[from(forward)]
+pub struct ClientName(String);
 
 /// AI-assistant-distinguishing prefix of a client's actor string, per its
 /// `--mcp-clients-file` entry. Only present in request extensions for
@@ -261,16 +268,17 @@ impl McpOAuthStore {
                     .as_ref()
                     .map(|uri| uri.to_string())
                     .unwrap_or_default();
-                // The OAuth client_id is just `name`: `prefix` only matters
-                // for the actor string, not for authentication.
+                // Authentication uses `client-id` only: `name` and `prefix`
+                // only matter for the actor string.
                 let (client_id, config) = ClientId::from_config(
-                    OAuthClientConfig::new(client.name, redirect_uri)
+                    OAuthClientConfig::new(client.client_id, redirect_uri)
                         .with_client_secret(client.secret.expose_secret())
                         .with_scopes(vec!["MCP".to_string()]),
                 );
                 actors.insert(
                     client_id.clone(),
                     ActorConfig {
+                        name: client.name,
                         prefix: client.prefix,
                         on_behalf_of: client.on_behalf_of,
                     },
@@ -299,7 +307,11 @@ impl McpOAuthStore {
             .await
             .get(client_id)
             .cloned()
-            .unwrap_or_default()
+            .unwrap_or_else(|| ActorConfig {
+                name: "unknown".to_owned(),
+                prefix: None,
+                on_behalf_of: None,
+            })
     }
 
     /// This server's own base URL without a trailing slash,
@@ -494,3 +506,39 @@ impl McpOAuthStore {
             .into_response()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn store() -> McpOAuthStore {
+        let toml = r#"
+            [[client]]
+            client-id = "example-id"
+            name = "example"
+            secret = "s"
+            on-behalf-of = "Jane"
+        "#;
+        let clients: McpClientsConfig = toml::from_str(toml).unwrap();
+        McpOAuthStore::new("http://localhost".parse().unwrap(), clients)
+    }
+
+    #[tokio::test]
+    async fn client_authenticates_by_client_id_only() {
+        let store = store();
+        assert!(store.client_registered("example-id").await.is_some());
+        assert!(store.client_registered("example").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn issued_token_carries_name_not_client_id() {
+        let store = store();
+        let token = store.gen_access_token("example-id").await;
+        let data = store
+            .validate_access_token(&token.access_token)
+            .await
+            .unwrap();
+        assert_eq!(data.actor.name, "example");
+    }
+}
+
