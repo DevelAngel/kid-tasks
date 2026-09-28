@@ -47,10 +47,13 @@ pub struct McpClientConfig {
     /// assistants.
     #[serde(default)]
     pub prefix: Option<ClientPrefix>,
-    /// The OAuth client_id this client authenticates with.
+    /// The OAuth client_id this client authenticates with. Must be unique.
     pub client_id: String,
     /// The client's identity in the actor string attributed to its
-    /// changes - independent of `client_id`.
+    /// changes - independent of `client_id`. Not required to be unique:
+    /// rotating a client's credential can keep the same `name` across old
+    /// and new `client_id`, so the actor trail stays attributed to the
+    /// same identity.
     pub name: String,
     #[serde(default)]
     pub redirect_uri: Option<Url>,
