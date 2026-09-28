@@ -813,11 +813,11 @@ impl McpService {
         }
     }
 
-    /// Derives the actor string `<client_id>:<on_behalf_of>` entirely from
+    /// Derives the actor string `<name>:<on_behalf_of>` entirely from
     /// the `--mcp-clients-file` entry of the OAuth client that authenticated
     /// this request - neither piece is claimed by the client itself.
     ///
-    /// The client id is not the MCP handshake's self-reported
+    /// The name is not the MCP handshake's self-reported
     /// `clientInfo.name`, since that's freely claimed by the client and
     /// thus unverified. It carries whatever prefix distinguishes it (e.g.
     /// `ai:claude-desktop` vs. `matrix-relay`), since not every client is an
@@ -833,11 +833,11 @@ impl McpService {
             .extensions
             .get::<axum::http::request::Parts>()
             .map(|parts| &parts.extensions);
-        let client_id = extensions
-            .and_then(|ext| ext.get::<oauth::ClientId>())
-            .map(|id| id.to_string())
+        let name = extensions
+            .and_then(|ext| ext.get::<oauth::ClientName>())
+            .map(|name| name.to_string())
             .unwrap_or_else(|| {
-                tracing::warn!("no authenticated client id in request extensions");
+                tracing::warn!("no authenticated client name in request extensions");
                 "unknown".to_string()
             });
         let prefix = extensions
@@ -846,11 +846,11 @@ impl McpService {
             .unwrap_or_default();
         let Some(on_behalf_of) = extensions.and_then(|ext| ext.get::<oauth::OnBehalfOf>()) else {
             return Err(McpError::invalid_request(
-                format!("client {prefix}{client_id} is read-only (no on-behalf-of configured)"),
+                format!("client {prefix}{name} is read-only (no on-behalf-of configured)"),
                 None,
             ));
         };
-        Ok(format!("{prefix}{client_id}:{on_behalf_of}"))
+        Ok(format!("{prefix}{name}:{on_behalf_of}"))
     }
 
     fn not_found(id: Uuid) -> CallToolResult {

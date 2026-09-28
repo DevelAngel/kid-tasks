@@ -5,7 +5,8 @@
 # the authorization code straight from the `/oauth/approve` redirect
 # response instead of following a browser through it.
 [[client]]
+client-id = "kid-e2e"
 name = "kid-e2e"
 on-behalf-of = "test"
-redirect_uri = "http://localhost:9299/callback"
+redirect-uri = "http://localhost:9299/callback"
 secret = "e2e-test-secret"

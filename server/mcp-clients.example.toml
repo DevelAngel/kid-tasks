@@ -7,11 +7,12 @@
 # An unset or empty file disables MCP OAuth entirely
 # (no client can complete the authorization flow).
 #
-# `name` is this client's OAuth client_id — the value it authenticates
-# with. Every change the client makes is recorded as
-# `<prefix>:<name>:<on-behalf-of>` — `prefix` and `on-behalf-of` don't
-# affect authentication, only that actor string, and are fixed here rather
-# than tool parameters a client could claim for itself.
+# `client-id` is this client's OAuth client_id - the value it
+# authenticates with. It must be unique. Every change the client makes is
+# recorded as `<prefix>:<name>:<on-behalf-of>` - `name`, `prefix` and
+# `on-behalf-of` don't affect authentication, only that actor string, and
+# are fixed here rather than tool parameters a client could claim for
+# itself.
 #
 # `prefix` is a closed set - currently just "ai", for AI assistants - and
 # fails to parse on anything else, rather than silently accepting a typo as
@@ -21,6 +22,7 @@
 # attribute changes to, so mutating tools are rejected for it).
 
 [[client]]
+client-id = "mcp-inspector"
 name = "mcp-inspector"
 redirect-uri = "http://localhost:6274/oauth/callback"
 secret = "replace-with-a-generated-secret"
@@ -28,6 +30,7 @@ on-behalf-of = "Jane"
 
 [[client]]
 prefix = "ai"
+client-id = "example-ai-client"
 name = "example.ai"
 redirect-uri = "https://example.ai/api/mcp/auth_callback"
 secret = "replace-with-a-another-generated-secret"
@@ -38,5 +41,6 @@ on-behalf-of = "Jane"
 # the client_credentials grant instead. redirect-uri can be omitted.
 # Read-only, since no on-behalf-of is configured.
 [[client]]
+client-id = "matrix-relay-client"
 name = "matrix-relay"
 secret = "replace-with-yet-another-generated-secret"

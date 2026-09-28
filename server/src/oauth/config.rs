@@ -1,6 +1,7 @@
 use miette::{IntoDiagnostic, Result};
 use secrecy::SecretString;
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::fmt;
 use std::fs;
 use std::path::Path;
@@ -13,8 +14,7 @@ use url::Url;
 /// failing to parse.
 ///
 /// This is purely about the actor string, not about OAuth authentication:
-/// the OAuth client_id a client authenticates with is just `name`, without
-/// this prefix.
+/// the OAuth client_id a client authenticates with is its `client-id`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ClientPrefix {
@@ -47,6 +47,10 @@ pub struct McpClientConfig {
     /// assistants.
     #[serde(default)]
     pub prefix: Option<ClientPrefix>,
+    /// The OAuth client_id this client authenticates with.
+    pub client_id: String,
+    /// The client's identity in the actor string attributed to its
+    /// changes - independent of `client_id`.
     pub name: String,
     #[serde(default)]
     pub redirect_uri: Option<Url>,
@@ -68,6 +72,7 @@ pub struct McpClientConfig {
 ///
 /// ```toml
 /// [[client]]
+/// client-id = "mcp-inspector"
 /// name = "mcp-inspector"
 /// redirect-uri = "http://localhost:6274/oauth/callback"
 /// secret = "..."
@@ -75,6 +80,7 @@ pub struct McpClientConfig {
 ///
 /// [[client]]
 /// prefix = "ai"
+/// client-id = "example-ai-client"
 /// name = "example.ai"
 /// redirect-uri = "https://example.ai/api/mcp/auth_callback"
 /// secret = "..."
@@ -83,6 +89,7 @@ pub struct McpClientConfig {
 /// # machine client, only uses the client_credentials grant, read-only
 /// # (no on-behalf-of, so mutating tools are rejected)
 /// [[client]]
+/// client-id = "matrix-relay-client"
 /// name = "matrix-relay"
 /// secret = "..."
 /// ```
@@ -106,6 +113,7 @@ impl McpClientsConfig {
 
         let raw = fs::read_to_string(path).into_diagnostic()?;
         let config: Self = toml::from_str(&raw).into_diagnostic()?;
+        config.ensure_unique_client_ids()?;
 
         if config.clients.is_empty() {
             tracing::error!(
@@ -139,6 +147,14 @@ impl McpClientsConfig {
 
         Ok(config)
     }
+
+    fn ensure_unique_client_ids(&self) -> Result<()> {
+        let mut seen = HashSet::new();
+        match self.clients.iter().find(|c| !seen.insert(&c.client_id)) {
+            Some(c) => Err(miette::miette!("duplicate client-id: {}", c.client_id)),
+            None => Ok(()),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -155,6 +171,7 @@ mod tests {
         let toml = r#"
             [[client]]
             prefix = "bot"
+            client-id = "example-id"
             name = "example"
             secret = "s"
             on-behalf-of = "Jane"
@@ -167,6 +184,7 @@ mod tests {
     fn missing_prefix_defaults_to_none() {
         let toml = r#"
             [[client]]
+            client-id = "example-id"
             name = "example"
             secret = "s"
             on-behalf-of = "Jane"
@@ -176,9 +194,52 @@ mod tests {
     }
 
     #[test]
+    fn missing_client_id_fails_to_parse() {
+        let toml = r#"
+            [[client]]
+            name = "example"
+            secret = "s"
+        "#;
+        let err = toml::from_str::<McpClientsConfig>(toml).unwrap_err();
+        assert!(err.to_string().contains("client-id"), "{err}");
+    }
+
+    #[test]
+    fn name_and_client_id_are_independent() {
+        let toml = r#"
+            [[client]]
+            client-id = "example-id"
+            name = "example"
+            secret = "s"
+        "#;
+        let config: McpClientsConfig = toml::from_str(toml).unwrap();
+        assert_eq!(config.clients[0].client_id, "example-id");
+        assert_eq!(config.clients[0].name, "example");
+    }
+
+    #[test]
+    fn duplicate_client_id_is_rejected() {
+        let toml = r#"
+            [[client]]
+            client-id = "same-id"
+            name = "first"
+            secret = "s"
+
+            [[client]]
+            client-id = "same-id"
+            name = "second"
+            secret = "s"
+        "#;
+        let config: McpClientsConfig = toml::from_str(toml).unwrap();
+        let err = config.ensure_unique_client_ids().unwrap_err();
+        assert!(err.to_string().contains("same-id"), "{err}");
+    }
+
+    #[test]
     fn example_file_parses() {
         let raw = include_str!("../../mcp-clients.example.toml");
         let config: McpClientsConfig = toml::from_str(raw).unwrap();
+        config.ensure_unique_client_ids().unwrap();
         assert_eq!(config.clients.len(), 3);
         assert_eq!(config.clients[0].name, "mcp-inspector");
         assert_eq!(config.clients[1].name, "example.ai");
@@ -191,6 +252,7 @@ mod tests {
     fn missing_on_behalf_of_defaults_to_none() {
         let toml = r#"
             [[client]]
+            client-id = "matrix-relay-id"
             name = "matrix-relay"
             secret = "s"
         "#;
@@ -198,3 +260,4 @@ mod tests {
         assert_eq!(config.clients[0].on_behalf_of, None);
     }
 }
+

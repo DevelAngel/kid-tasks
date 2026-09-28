@@ -14,7 +14,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::store::{McpOAuthStore, OnBehalfOf, PkceChallenge, Prefix};
+use super::store::{ClientName, McpOAuthStore, OnBehalfOf, PkceChallenge, Prefix};
 
 /// Query parameters of /authorize API call
 #[derive(Debug, Deserialize)]
@@ -514,10 +514,10 @@ pub async fn validate_access_token(
         Some(data) => {
             tracing::info!("valid access token (client {})", data.client_id);
             // Lets handlers (e.g. the MCP tool/resource router) derive the
-            // acting client from the authenticated, server-assigned client
-            // id instead of the self-reported (and thus unverified) MCP
+            // acting client's name from the authenticated client's
+            // configured entry instead of the self-reported (and thus unverified) MCP
             // `clientInfo.name` from the initialize handshake.
-            request.extensions_mut().insert(data.client_id);
+            request.extensions_mut().insert(ClientName::from(data.actor.name));
             if let Some(prefix) = data.actor.prefix {
                 request.extensions_mut().insert(Prefix(prefix));
             }
