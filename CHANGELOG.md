@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.24.0](https://github.com/DevelAngel/keep-it-done/compare/v0.23.1..v0.24.0) - 2026-10-01
+
+### Features
+
+- **(mcp)** [**breaking**] separate client-id from name - ([5c6a521](https://github.com/DevelAngel/keep-it-done/commit/5c6a5217457d7f3d87b49fc29c2a0e357744af51)) - Angelos Drossos
+
+---
 ## [0.23.1](https://github.com/DevelAngel/keep-it-done/compare/v0.23.0..v0.23.1) - 2026-09-23
 
 ### Bug Fixes
