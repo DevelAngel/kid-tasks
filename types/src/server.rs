@@ -182,7 +182,7 @@ impl TaskCache {
     }
 
     pub fn add(&mut self, mut task: Task, actor: impl Into<String>) -> Uuid {
-        task.add_author(&actor.into());
+        task.add_author(actor.into());
         let id = TaskCache::create_id();
         self.dirty.insert(id);
         self.tasks.insert(id, task);
@@ -191,7 +191,7 @@ impl TaskCache {
 
     pub fn add_with_id(&mut self, id: Uuid, mut task: Task, actor: impl Into<String>) {
         assert!(Self::has_valid_id(&id), "id must be UUID v7");
-        task.add_author(&actor.into());
+        task.add_author(actor.into());
         self.dirty.insert(id);
         self.tasks.insert(id, task);
     }
@@ -226,7 +226,6 @@ impl TaskCache {
             let Ok(entry) = entry.map_err(|e| {
                 let e = FsError::ReadDirEntry(self.dir.clone(), e);
                 errors.push_back(e.into());
-                ()
             }) else {
                 continue;
             };
@@ -239,7 +238,6 @@ impl TaskCache {
 
             let Ok((task, needs_migration)) = Self::read_task_file(&id, &entry).await.map_err(|e| {
                 errors.push_back(e.into());
-                ()
             }) else {
                 continue;
             };
@@ -321,9 +319,7 @@ impl TaskCache {
         }
 
         let filename = file.file_prefix().unwrap().display().to_string();
-        let Some(id) = filename.strip_prefix("task-") else {
-            return None;
-        };
+        let id = filename.strip_prefix("task-")?;
 
         // we have found a task file
         let Ok(id) = Uuid::try_parse(id) else {
@@ -338,7 +334,7 @@ impl TaskCache {
     }
 
     async fn read_task_file<P: AsRef<Path>>(id: &Uuid, path: P) -> TaskResult<(Task, bool)> {
-        assert!(Self::has_valid_id(&id));
+        assert!(Self::has_valid_id(id));
         let path = path.as_ref();
         assert!(path.is_file());
         let raw = fs::read_to_string(path).map_err(|e| TaskError::OpenFile {
@@ -438,7 +434,7 @@ impl TaskCache {
 
         write_file().map_err(|e| TaskError::WriteFile {
             id: *id,
-            path: path,
+            path,
             error: Box::new(e),
         })?;
 
