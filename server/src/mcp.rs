@@ -13,7 +13,9 @@ use kid_app::server::{
 };
 use kid_types::task::Details as TaskDetails;
 use kid_types::task::DetailsPatch as TaskDetailsPatch;
-use kid_types::{Task, TaskAssignee, TaskCategory, TaskContext, TaskInfos, TaskPriority, TaskSummary, Uuid};
+use kid_types::{
+    Task, TaskAssignee, TaskCategory, TaskContext, TaskInfos, TaskPriority, TaskSummary, Uuid,
+};
 
 use chrono::{Datelike, Weekday};
 
@@ -27,7 +29,7 @@ use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{
     CacheScope, CallToolResult, ContentBlock, ErrorData as McpError, Implementation,
     ListResourcesResult, PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResponse,
-    ReadResourceResult, Resource, ResourceContents, ResultType, ServerCapabilities, ServerInfo,
+    ReadResourceResult, Resource, ResourceContents, ResultType, ServerCapabilities, ServerConfig,
 };
 use rmcp::schemars::{self, JsonSchema};
 use rmcp::service::RequestContext;
@@ -283,8 +285,8 @@ impl McpServer {
 
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for McpService {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(
             ServerCapabilities::builder()
                 .enable_tools()
                 .enable_resources()
@@ -360,7 +362,6 @@ impl ServerHandler for McpService {
         }
         AssigneeFilter::Unassigned.push_resources(&mut resources);
 
-
         Ok(ListResourcesResult {
             resources,
             next_cursor: None,
@@ -371,8 +372,6 @@ impl ServerHandler for McpService {
             cache_scope: Some(CacheScope::Private),
         })
     }
-
-
 
     async fn read_resource(
         &self,
@@ -511,7 +510,6 @@ impl ServerHandler for McpService {
                 ]))
             }
 
-
             _ => Err(McpError::resource_not_found(
                 format!("unknown resource: {uri}"),
                 None,
@@ -525,7 +523,13 @@ impl ServerHandler for McpService {
 impl McpService {
     #[tool(
         description = "List tasks, optionally filtered by status and/or fuzzy search",
-        annotations(title = "List Tasks", read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "List Tasks",
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn list(
         &self,
@@ -579,7 +583,13 @@ impl McpService {
 
     #[tool(
         description = "Add a new task. Returns the new task's id",
-        annotations(title = "Add Task", read_only_hint = false, destructive_hint = false, idempotent_hint = false, open_world_hint = false)
+        annotations(
+            title = "Add Task",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn add(
         &self,
@@ -611,7 +621,13 @@ impl McpService {
 
     #[tool(
         description = "Rename a task's summary — its identity. Use `update` for other changes",
-        annotations(title = "Rename Task", read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "Rename Task",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn rename(
         &self,
@@ -632,7 +648,13 @@ impl McpService {
 
     #[tool(
         description = "Replace all task details (PUT semantics — omitted fields cleared)",
-        annotations(title = "Replace Task Details", read_only_hint = false, destructive_hint = true, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "Replace Task Details",
+            read_only_hint = false,
+            destructive_hint = true,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn replace(
         &self,
@@ -654,7 +676,13 @@ impl McpService {
 
     #[tool(
         description = "Patch task details (PATCH semantics — omitted fields unchanged)",
-        annotations(title = "Patch Task Details", read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "Patch Task Details",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn update(
         &self,
@@ -674,7 +702,13 @@ impl McpService {
 
     #[tool(
         description = "Complete a task, or reopen it with reopen=true",
-        annotations(title = "Complete/Reopen Task", read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "Complete/Reopen Task",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn complete(
         &self,
@@ -699,7 +733,13 @@ impl McpService {
 
     #[tool(
         description = "Change a task's category",
-        annotations(title = "Change Task Category", read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "Change Task Category",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn recategorize(
         &self,
@@ -722,7 +762,13 @@ impl McpService {
 
     #[tool(
         description = "Add contexts to a task, keeping existing ones",
-        annotations(title = "Add Task Contexts", read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "Add Task Contexts",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn add_contexts(
         &self,
@@ -748,7 +794,13 @@ impl McpService {
 
     #[tool(
         description = "Replace all of a task's contexts (empty list clears them)",
-        annotations(title = "Replace Task Contexts", read_only_hint = false, destructive_hint = true, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "Replace Task Contexts",
+            read_only_hint = false,
+            destructive_hint = true,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn replace_contexts(
         &self,
@@ -774,7 +826,13 @@ impl McpService {
 
     #[tool(
         description = "Set or clear a task's priority",
-        annotations(title = "Set Task Priority", read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "Set Task Priority",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn set_priority(
         &self,
@@ -801,7 +859,13 @@ impl McpService {
 
     #[tool(
         description = "Set or clear a task's assignee",
-        annotations(title = "Set Task Assignee", read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+        annotations(
+            title = "Set Task Assignee",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn set_assignee(
         &self,
@@ -945,7 +1009,9 @@ impl AssigneeFilter {
                 format!("{}/{slug}", daily_report::URI),
                 format!("Daily Report — {name_suffix}"),
             )
-            .with_description(format!("Daily Report filtered to tasks {description_suffix}."))
+            .with_description(format!(
+                "Daily Report filtered to tasks {description_suffix}."
+            ))
             .with_mime_type("text/markdown"),
         );
         resources.push(
@@ -961,7 +1027,9 @@ impl AssigneeFilter {
                 format!("{}/{slug}", quick_wins::URI),
                 format!("Quick Wins — {name_suffix}"),
             )
-            .with_description(format!("Quick Wins filtered to tasks {description_suffix}."))
+            .with_description(format!(
+                "Quick Wins filtered to tasks {description_suffix}."
+            ))
             .with_mime_type("text/markdown"),
         );
         resources.push(
@@ -969,7 +1037,9 @@ impl AssigneeFilter {
                 format!("{}/{slug}", weekly_report::URI),
                 format!("Weekly Review — {name_suffix}"),
             )
-            .with_description(format!("Weekly Review filtered to tasks {description_suffix}."))
+            .with_description(format!(
+                "Weekly Review filtered to tasks {description_suffix}."
+            ))
             .with_mime_type("text/markdown"),
         );
     }
@@ -990,8 +1060,6 @@ impl std::str::FromStr for AssigneeFilter {
         }
     }
 }
-
-
 
 pub(super) mod categories {
     pub const NAME: &str = "Categories";
@@ -1017,7 +1085,6 @@ pub(super) mod quick_wins {
     pub const NAME: &str = "Quick Wins";
     pub const URI: &str = "kid://report/quick_wins";
 }
-
 
 /// Renders `changes` ([`group_recently_changed`]'s result) as Markdown,
 /// grouped by day, most recent first. Fallback body for the weekly

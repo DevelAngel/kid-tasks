@@ -121,10 +121,12 @@ pub async fn auth_server(State(state): State<Arc<McpOAuthStore>>) -> impl IntoRe
     metadata.response_types_supported = Some(vec!["code".to_owned()]);
     metadata.code_challenge_methods_supported = Some(vec!["S256".to_owned()]);
     metadata.issuer = Some(base_url);
-    metadata.additional_fields = HashMap::from([(
-        "grant_types_supported".into(),
-        json!(["authorization_code", "client_credentials", "refresh_token"]),
-    )]);
+    metadata.additional_fields = HashMap::from([
+        (
+            "grant_types_supported".into(),
+            json!(["authorization_code", "client_credentials", "refresh_token"]),
+        ),
+    ]);
     tracing::debug!("metadata: {:?}", metadata);
     (StatusCode::OK, Json(metadata))
 }
@@ -517,7 +519,9 @@ pub async fn validate_access_token(
             // acting client's name from the authenticated client's
             // configured entry instead of the self-reported (and thus unverified) MCP
             // `clientInfo.name` from the initialize handshake.
-            request.extensions_mut().insert(ClientName::from(data.actor.name));
+            request
+                .extensions_mut()
+                .insert(ClientName::from(data.actor.name));
             if let Some(prefix) = data.actor.prefix {
                 request.extensions_mut().insert(Prefix(prefix));
             }

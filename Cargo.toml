@@ -46,7 +46,7 @@ leptos_axum = "0.8.2"
 miette = "7.6.0"
 predicates = "3.1.4"
 rand = "0.10"
-rmcp = { version = "3.0.1", features = ["reqwest"] }
+rmcp = { version = "3", features = ["reqwest"] }
 schemars = { version = "1.2.1", default-features = false }
 secrecy = "0.10.3"
 serde = "1.0.228"
