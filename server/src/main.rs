@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
         .await
         .load()
         .await
-        .and_then(|(num_loaded, num_to_migrate)| {
+        .map(|(num_loaded, num_to_migrate)| {
             if num_loaded > 0 {
                 tracing::info!("{num_loaded} tasks loaded");
                 if num_to_migrate > 0 {
@@ -62,7 +62,6 @@ async fn main() -> Result<()> {
             } else {
                 tracing::warn!("no tasks loaded");
             }
-            Ok(())
         })?;
 
     let time_offset = SharedTimeOffset::default();
