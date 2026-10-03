@@ -282,11 +282,13 @@ fn arrow_opacity_class(switch_count: u32) -> &'static str {
     }
 }
 
+type DeadlineGroups = Vec<(DeadlineGroup, Vec<(Uuid, task::Infos, Urgency, NaiveDate)>)>;
+
 #[derive(Clone, Serialize, Deserialize)]
 enum TaskListData {
     Grouped(IndexMap<TaskCategory, Vec<(Uuid, task::Infos)>>),
     EstimateGrouped(Vec<(TaskTimeEstimate, Vec<(Uuid, task::Infos)>)>),
-    DeadlineGrouped(Vec<(DeadlineGroup, Vec<(Uuid, task::Infos, Urgency, NaiveDate)>)>, Vec<(Uuid, task::Infos)>),
+    DeadlineGrouped(DeadlineGroups, Vec<(Uuid, task::Infos)>),
     DayGrouped(Vec<(NaiveDate, Vec<server::RecentChange>)>),
 }
 
@@ -1818,7 +1820,7 @@ fn TaskDetails<T: for<'a> TaskId<'a>>(task: T, summary: RwSignal<String>, catego
         }
     });
     let update_time_estimate = Action::new(move |estimate: &Option<TaskTimeEstimate>| {
-        let estimate = estimate.clone();
+        let estimate = *estimate;
         async move {
             if let Err(e) = server::update_task_time_estimate(id, estimate).await {
                 tracing::error!("update time estimate failed: {e}");
@@ -2383,7 +2385,7 @@ fn TaskDetails<T: for<'a> TaskId<'a>>(task: T, summary: RwSignal<String>, catego
                                                                 }
                                                                 on:click=move |_| {
                                                                     let new = if time_estimate_value.get_untracked() == Some(variant) { None } else { Some(variant) };
-                                                                    time_estimate_value.set(new.clone());
+                                                                    time_estimate_value.set(new);
                                                                     update_time_estimate.dispatch(new);
                                                                 }
                                                             >{label}</button>
