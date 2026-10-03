@@ -11,6 +11,7 @@ mod testctl;
 use crate::builder::ServerBuilder;
 use crate::cache::{SharedTaskCache, SharedTimeOffset, TaskCacheFlush};
 use crate::cli::{Cli, Parser};
+use crate::mcp::McpAuth;
 use crate::oauth::McpClientsConfig;
 
 use leptos::prelude::get_configuration;
@@ -65,7 +66,10 @@ async fn main() -> Result<()> {
         })?;
 
     let time_offset = SharedTimeOffset::default();
-    let mcp_clients = McpClientsConfig::load(args.server.mcp_clients_file.as_deref())?;
+    let mcp_auth = match (args.server.mcp_oauth_disabled, args.server.mcp_actor) {
+        (true, Some(actor)) => McpAuth::Disabled { actor },
+        _ => McpAuth::OAuth(McpClientsConfig::load(args.server.mcp_clients_file.as_deref())?),
+    };
 
     let shutdown = CancellationToken::new();
     #[allow(unused_mut)]
@@ -73,7 +77,7 @@ async fn main() -> Result<()> {
         .with_mcp_addr(&mcp_addr)
         .with_mcp_base_url(&args.server.mcp_base_url)
         .with_mcp_allowed_origins(&args.server.mcp_allowed_origins)
-        .with_mcp_clients(mcp_clients)
+        .with_mcp_auth(mcp_auth)
         .with_http_addr(&http_addr)
         .with_leptos_options(&leptos_conf.leptos_options);
     #[cfg(feature = "test-control")]

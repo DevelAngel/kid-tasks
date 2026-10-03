@@ -1,6 +1,6 @@
 use crate::cache::SharedEventBus;
 use crate::http::HttpServer;
-use crate::mcp::McpServer;
+use crate::mcp::{McpAuth, McpServer};
 use crate::oauth::McpClientsConfig;
 #[cfg(feature = "test-control")]
 use crate::testctl::TestControlServer;
@@ -29,7 +29,7 @@ pub struct ServerBuilder<MCP, HTTP, LeptosOptions> {
     mcp_addr: MCP,
     mcp_base_url: Option<Url>,
     mcp_allowed_origins: Vec<Url>,
-    mcp_clients: McpClientsConfig,
+    mcp_auth: McpAuth,
     http_addr: HTTP,
     leptos_options: LeptosOptions,
     shutdown: CancellationToken,
@@ -53,7 +53,7 @@ impl ServerBuilder<Unset, Unset, Unset> {
             mcp_addr: Unset,
             mcp_base_url: None,
             mcp_allowed_origins: Vec::new(),
-            mcp_clients: McpClientsConfig::default(),
+            mcp_auth: McpAuth::OAuth(McpClientsConfig::default()),
             http_addr: Unset,
             leptos_options: Unset,
             shutdown: shutdown.clone(),
@@ -72,7 +72,7 @@ impl<W, L> ServerBuilder<Unset, W, L> {
             mcp_addr: *addr,
             mcp_base_url: self.mcp_base_url,
             mcp_allowed_origins: self.mcp_allowed_origins,
-            mcp_clients: self.mcp_clients,
+            mcp_auth: self.mcp_auth,
             http_addr: self.http_addr,
             leptos_options: self.leptos_options,
             shutdown: self.shutdown,
@@ -100,10 +100,10 @@ impl<R, W, L> ServerBuilder<R, W, L> {
         self
     }
 
-    /// OAuth clients allowed to authenticate against the MCP server; see
-    /// `cli::ServerArgs::mcp_clients_file`.
-    pub fn with_mcp_clients(mut self, clients: McpClientsConfig) -> Self {
-        self.mcp_clients = clients;
+    /// How MCP requests are authenticated; see `cli::ServerArgs::mcp_clients_file`
+    /// and `cli::ServerArgs::mcp_oauth_disabled`.
+    pub fn with_mcp_auth(mut self, auth: McpAuth) -> Self {
+        self.mcp_auth = auth;
         self
     }
 
@@ -123,7 +123,7 @@ impl<R, L> ServerBuilder<R, Unset, L> {
             mcp_addr: self.mcp_addr,
             mcp_base_url: self.mcp_base_url,
             mcp_allowed_origins: self.mcp_allowed_origins,
-            mcp_clients: self.mcp_clients,
+            mcp_auth: self.mcp_auth,
             http_addr: *addr,
             leptos_options: self.leptos_options,
             shutdown: self.shutdown,
@@ -145,7 +145,7 @@ impl<R, W> ServerBuilder<R, W, Unset> {
             mcp_addr: self.mcp_addr,
             mcp_base_url: self.mcp_base_url,
             mcp_allowed_origins: self.mcp_allowed_origins,
-            mcp_clients: self.mcp_clients,
+            mcp_auth: self.mcp_auth,
             http_addr: self.http_addr,
             leptos_options: options.clone(),
             shutdown: self.shutdown,
@@ -182,7 +182,7 @@ impl ServerBuilder<SocketAddr, SocketAddr, LeptosOptions> {
             self.mcp_base_url
                 .expect("mcp_base_url must be set via with_mcp_base_url"),
             self.mcp_allowed_origins.clone(),
-            self.mcp_clients.clone(),
+            self.mcp_auth,
         ));
         #[cfg(feature = "test-control")]
         let test_control_service = match self.test_control_addr {

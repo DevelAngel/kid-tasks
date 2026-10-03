@@ -3,7 +3,7 @@
 //! behind the tool/resource split, the assistant-identity handling,
 //! and the separate-port transport choice.
 
-use crate::oauth::{self, McpOAuthStore};
+use crate::oauth::{self, McpClientsConfig, McpOAuthStore};
 use crate::{SharedTaskCache, SharedTimeOffset};
 
 use kid_app::DeadlineGroup;
@@ -17,6 +17,7 @@ use kid_types::{Task, TaskAssignee, TaskCategory, TaskContext, TaskInfos, TaskPr
 
 use chrono::{Datelike, Weekday};
 
+use axum::Extension;
 use axum::Router;
 use axum::middleware;
 use axum::routing::{get, post};
@@ -50,6 +51,17 @@ use std::sync::Arc;
 /// Standalone MCP server, kept on its own port.
 /// See `docs/adr/rmcp-mcp-server.md` — "Transport and port".
 pub struct McpServer;
+
+/// How requests to the MCP server are authenticated; see
+/// `cli::ServerArgs::mcp_oauth_disabled`.
+pub enum McpAuth {
+    OAuth(McpClientsConfig),
+    Disabled { actor: String },
+}
+
+/// Request extension carrying the `--mcp-actor` while OAuth is disabled.
+#[derive(Clone)]
+struct FixedActor(String);
 
 /// MCP server exposing task tools and read-only reference resources.
 #[derive(Clone)]
@@ -170,7 +182,7 @@ impl McpServer {
         time_offset: SharedTimeOffset,
         base_url: Url,
         allowed_origins: Vec<Url>,
-        clients: crate::oauth::McpClientsConfig,
+        auth: McpAuth,
     ) -> Result<()> {
         tracing::info!(
             "MCP server listening on: http://{}",
@@ -197,41 +209,54 @@ impl McpServer {
                 .with_cancellation_token(shutdown.child_token()),
         );
 
-        let oauth_store = Arc::new(McpOAuthStore::new(base_url, clients));
-        tokio::spawn({
-            let oauth_store = oauth_store.clone();
-            let shutdown = shutdown.child_token();
-            async move { oauth_store.background_cleanup(shutdown).await }
-        });
+        let mcp_router = match auth {
+            McpAuth::OAuth(clients) => {
+                let oauth_store = Arc::new(McpOAuthStore::new(base_url, clients));
+                tokio::spawn({
+                    let oauth_store = oauth_store.clone();
+                    let shutdown = shutdown.child_token();
+                    async move { oauth_store.background_cleanup(shutdown).await }
+                });
 
-        let protected_mcp_router =
-            Router::new()
-                .nest_service("/mcp", mcp_service)
-                .layer(middleware::from_fn_with_state(
-                    oauth_store.clone(),
-                    oauth::validate_access_token,
-                ));
+                let protected_mcp_router = Router::new()
+                    .nest_service("/mcp", mcp_service)
+                    .layer(middleware::from_fn_with_state(
+                        oauth_store.clone(),
+                        oauth::validate_access_token,
+                    ));
 
-        let oauth_server_router = Router::new()
-            .route(
-                "/.well-known/oauth-authorization-server",
-                get(oauth::auth_server).options(oauth::auth_server),
-            )
-            .route(
-                "/.well-known/oauth-protected-resource",
-                get(oauth::protected_resource).options(oauth::protected_resource),
-            )
-            .route(
-                "/.well-known/oauth-protected-resource/mcp",
-                get(oauth::protected_resource).options(oauth::protected_resource),
-            )
-            .route("/authorize", get(oauth::authorize))
-            .route("/oauth/approve", post(oauth::approve))
-            .route(
-                "/token",
-                post(oauth::gen_access_token).options(oauth::gen_access_token),
-            )
-            .with_state(oauth_store.clone());
+                let oauth_server_router = Router::new()
+                    .route(
+                        "/.well-known/oauth-authorization-server",
+                        get(oauth::auth_server).options(oauth::auth_server),
+                    )
+                    .route(
+                        "/.well-known/oauth-protected-resource",
+                        get(oauth::protected_resource).options(oauth::protected_resource),
+                    )
+                    .route(
+                        "/.well-known/oauth-protected-resource/mcp",
+                        get(oauth::protected_resource).options(oauth::protected_resource),
+                    )
+                    .route("/authorize", get(oauth::authorize))
+                    .route("/oauth/approve", post(oauth::approve))
+                    .route(
+                        "/token",
+                        post(oauth::gen_access_token).options(oauth::gen_access_token),
+                    )
+                    .with_state(oauth_store);
+
+                protected_mcp_router.merge(oauth_server_router)
+            }
+            McpAuth::Disabled { actor } => {
+                tracing::warn!(
+                    "MCP OAuth disabled: anyone who can reach the MCP port acts as {actor}"
+                );
+                Router::new()
+                    .nest_service("/mcp", mcp_service)
+                    .layer(Extension(FixedActor(actor)))
+            }
+        };
 
         // In deployment, static assets live under LEPTOS_SITE_ROOT; for
         // local dev (where that's unset) public/ is a sibling of server/
@@ -240,9 +265,7 @@ impl McpServer {
             .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/../public").to_owned());
         let favicons = ServeDir::new(favicons_dir);
 
-        let app = Router::new()
-            .merge(protected_mcp_router)
-            .merge(oauth_server_router)
+        let app = mcp_router
             .fallback_service(favicons)
             .layer(CorsLayer::permissive())
             .layer(TraceLayer::new_for_http());
@@ -828,11 +851,17 @@ impl McpService {
     /// A client whose entry omits `on-behalf-of` is read-only: there's no
     /// human to attribute a change to, so this returns an error instead of
     /// making one up.
+    ///
+    /// With OAuth disabled, the fixed `--mcp-actor` is returned instead.
     fn actor(context: &RequestContext<RoleServer>) -> Result<String, McpError> {
         let extensions = context
             .extensions
             .get::<axum::http::request::Parts>()
             .map(|parts| &parts.extensions);
+        if let Some(actor) = extensions.and_then(|ext| ext.get::<FixedActor>()) {
+            return Ok(actor.0.clone());
+        }
+
         let name = extensions
             .and_then(|ext| ext.get::<oauth::ClientName>())
             .map(|name| name.to_string())
