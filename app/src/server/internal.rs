@@ -109,7 +109,7 @@ pub fn group_upcoming<'a>(
 
         // Inclusion: open AND (has due_date OR start_date <= today).
         // Everything else is backlog.
-        if due.is_none() && start.map_or(true, |s| s > today) {
+        if due.is_none() && start.is_none_or(|s| s > today) {
             backlog.push((id.to_owned(), task.info().to_owned()));
             continue;
         }
@@ -258,7 +258,7 @@ pub fn group_upcoming<'a>(
     // Chunk into contiguous groups (items are already in group order).
     let mut groups: UpcomingGroups = Vec::new();
     for (id, info, group, sort_date, urgency, _) in items {
-        if groups.last().map_or(true, |(key, _)| *key != group) {
+        if groups.last().is_none_or(|(key, _)| *key != group) {
             groups.push((group, Vec::new()));
         }
         groups
@@ -375,7 +375,7 @@ pub(super) fn group_recently_changed<'a>(
 ) -> Vec<super::RecentChange> {
     let calendar_cutoff = today.checked_sub_days(Days::new(2)).unwrap();
     let mut all: Vec<_> = tasks
-        .filter_map(|(id, task)| {
+        .map(|(id, task)| {
             let last_change = task
                 .authors()
                 .values()
@@ -390,7 +390,7 @@ pub(super) fn group_recently_changed<'a>(
                 .iter()
                 .max_by_key(|(_, ts)| ts)
                 .is_some_and(|(a, _)| a.starts_with("ai:"));
-            Some((
+            (
                 last_change,
                 day,
                 super::RecentChange {
@@ -401,7 +401,7 @@ pub(super) fn group_recently_changed<'a>(
                     ai_last,
                     ai_involved,
                 },
-            ))
+            )
         })
         .collect();
     all.sort_by(|(a, _, _), (b, _, _)| b.cmp(a));
@@ -460,7 +460,7 @@ pub fn group_recently_changed_since<'a>(
             })
         })
         .collect();
-    all.sort_by(|a, b| b.last_changed.cmp(&a.last_changed));
+    all.sort_by_key(|change| std::cmp::Reverse(change.last_changed));
     all
 }
 
