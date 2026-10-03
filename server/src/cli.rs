@@ -55,9 +55,9 @@ pub struct ServerArgs {
     pub mcp_allowed_origins: Vec<Url>,
 
     /// TOML file listing OAuth clients allowed to authenticate against the
-    /// MCP server (name, redirect URI, secret). If unset or empty, MCP
-    /// OAuth is effectively disabled: no client can complete the
-    /// authorization flow.
+    /// MCP server (name, redirect URI, secret). If unset or empty, no client
+    /// can complete the authorization flow; use --mcp-disable-oauth to skip
+    /// OAuth instead.
     #[clap(
         long = "mcp-clients-file",
         global = true,
@@ -65,6 +65,28 @@ pub struct ServerArgs {
         value_name = "PATH"
     )]
     pub mcp_clients_file: Option<PathBuf>,
+
+    /// Skip OAuth on the MCP server: anyone who can reach its port can
+    /// use it, acting as `--mcp-actor`. Only for trusted networks.
+    #[clap(
+        long = "mcp-disable-oauth",
+        global = true,
+        env = "KID_MCP_DISABLE_OAUTH",
+        conflicts_with = "mcp_clients_file",
+        requires = "mcp_actor"
+    )]
+    pub mcp_oauth_disabled: bool,
+
+    /// Author recorded for every change made through the MCP server
+    /// while OAuth is disabled, e.g. "ai:claude:alice".
+    #[clap(
+        long = "mcp-actor",
+        global = true,
+        env = "KID_MCP_ACTOR",
+        value_name = "ACTOR",
+        requires = "mcp_oauth_disabled"
+    )]
+    pub mcp_actor: Option<String>,
 
     /// Address for the test-control admin channel (switch_dir/count/
     /// set_time_offset/reset_time_offset/flush), used by the e2e
