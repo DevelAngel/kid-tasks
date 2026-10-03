@@ -320,8 +320,8 @@ impl McpOAuthStore {
         self.base_url.origin().ascii_serialization()
     }
 
-    pub async fn client_registered<'a>(
-        &'a self,
+    pub async fn client_registered(
+        &self,
         client_id: impl Into<ClientId>,
     ) -> Option<OAuthClientConfig> {
         let clients = self.clients.read().await;

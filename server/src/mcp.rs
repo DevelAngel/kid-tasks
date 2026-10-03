@@ -1064,7 +1064,7 @@ fn render_backlog(backlog: UpcomingBacklog) -> String {
 
 /// Renders `groups` ([`group_quick_wins`]'s result) as Markdown: one
 /// heading per time estimate, shortest first.
-fn render_quick_wins<'a>(groups: QuickWinsGroups) -> String {
+fn render_quick_wins(groups: QuickWinsGroups) -> String {
     if groups.is_empty() {
         return "No open tasks have a time estimate.\n".to_owned();
     };
