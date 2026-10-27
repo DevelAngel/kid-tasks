@@ -77,6 +77,8 @@ async fn main() -> Result<()> {
         .with_mcp_addr(&mcp_addr)
         .with_mcp_base_url(&args.server.mcp_base_url)
         .with_mcp_allowed_origins(&args.server.mcp_allowed_origins)
+        .with_mcp_allow_only_agents(&args.server.mcp_allow_only_agents)
+
         .with_mcp_auth(mcp_auth)
         .with_http_addr(&http_addr)
         .with_leptos_options(&leptos_conf.leptos_options);

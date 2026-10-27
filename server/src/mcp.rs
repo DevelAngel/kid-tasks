@@ -28,6 +28,8 @@ use rmcp::model::{
     CacheScope, CallToolResult, ContentBlock, ErrorData as McpError, Implementation,
     ListResourcesResult, PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResponse,
     ReadResourceResult, Resource, ResourceContents, ResultType, ServerCapabilities, ServerConfig,
+    InitializeRequestParams, InitializeResult,
+
 };
 use rmcp::schemars::{self, JsonSchema};
 use rmcp::service::RequestContext;
@@ -69,6 +71,7 @@ pub struct McpService {
     task_cache: SharedTaskCache,
     time_offset: SharedTimeOffset,
     tool_router: ToolRouter<Self>,
+    allow_only_agents: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -183,6 +186,7 @@ impl McpServer {
         base_url: Url,
         allowed_origins: Vec<Url>,
         auth: McpAuth,
+        allow_only_agents: Vec<String>,
     ) -> Result<()> {
         tracing::info!(
             "MCP server listening on: http://{}",
@@ -201,7 +205,7 @@ impl McpServer {
             .collect();
 
         let mcp_service = StreamableHttpService::new(
-            move || Ok(McpService::new(task_cache.clone(), time_offset.clone())),
+            move || Ok(McpService::new(task_cache.clone(), time_offset.clone(), allow_only_agents.clone())),
             Arc::new(LocalSessionManager::default()),
             StreamableHttpServerConfig::default()
                 .with_allowed_origins(allowed_origins)
@@ -298,6 +302,26 @@ impl ServerHandler for McpService {
              values before inventing new ones.",
         )
     }
+
+    async fn initialize(
+        &self,
+        request: InitializeRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<InitializeResult, McpError> {
+        let agent = &request.client_info.name;
+        tracing::info!(agent, "MCP client initializing");
+
+        if !is_agent_allowed(agent, &self.allow_only_agents) {
+            return Err(McpError::invalid_request(
+                format!("agent {agent} is not allowed"),
+                None,
+            ));
+        }
+
+        context.peer.set_peer_info(request.clone());
+        self.negotiate_initialize(&request)
+    }
+
 
     async fn list_resources(
         &self,
@@ -828,11 +852,12 @@ impl McpService {
 }
 
 impl McpService {
-    pub fn new(task_cache: SharedTaskCache, time_offset: SharedTimeOffset) -> Self {
+    pub fn new(task_cache: SharedTaskCache, time_offset: SharedTimeOffset, allow_only_agents: Vec<String>) -> Self {
         Self {
             task_cache,
             time_offset,
             tool_router: Self::tool_router(),
+            allow_only_agents,
         }
     }
 
@@ -1136,3 +1161,32 @@ fn host_header(url: &Url) -> Option<String> {
         None => host.to_owned(),
     })
 }
+
+
+fn is_agent_allowed(agent: &str, allow_only_agents: &[String]) -> bool {
+    allow_only_agents.is_empty()
+        || allow_only_agents
+            .iter()
+            .any(|allowed| allowed.eq_ignore_ascii_case(agent))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_agent_allowed;
+
+    #[test]
+    fn empty_allowlist_allows_every_agent() {
+        assert!(is_agent_allowed("cursor-ide", &[]));
+    }
+
+    #[test]
+    fn allowlist_matches_case_insensitively() {
+        assert!(is_agent_allowed("OpenCode", &["opencode".to_owned()]));
+    }
+
+    #[test]
+    fn allowlist_rejects_unlisted_agents() {
+        assert!(!is_agent_allowed("cursor-cli", &["opencode".to_owned()]));
+    }
+}
+

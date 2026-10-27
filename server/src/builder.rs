@@ -29,6 +29,8 @@ pub struct ServerBuilder<MCP, HTTP, LeptosOptions> {
     mcp_addr: MCP,
     mcp_base_url: Option<Url>,
     mcp_allowed_origins: Vec<Url>,
+    mcp_allow_only_agents: Vec<String>,
+
     mcp_auth: McpAuth,
     http_addr: HTTP,
     leptos_options: LeptosOptions,
@@ -51,6 +53,8 @@ impl ServerBuilder<Unset, Unset, Unset> {
     ) -> Self {
         Self {
             mcp_addr: Unset,
+            mcp_allow_only_agents: Vec::new(),
+
             mcp_base_url: None,
             mcp_allowed_origins: Vec::new(),
             mcp_auth: McpAuth::OAuth(McpClientsConfig::default()),
@@ -72,6 +76,8 @@ impl<W, L> ServerBuilder<Unset, W, L> {
             mcp_addr: *addr,
             mcp_base_url: self.mcp_base_url,
             mcp_allowed_origins: self.mcp_allowed_origins,
+            mcp_allow_only_agents: self.mcp_allow_only_agents,
+
             mcp_auth: self.mcp_auth,
             http_addr: self.http_addr,
             leptos_options: self.leptos_options,
@@ -92,6 +98,13 @@ impl<R, W, L> ServerBuilder<R, W, L> {
         self.mcp_base_url = Some(base_url.clone());
         self
     }
+
+    /// Agent names allowed to initialize an MCP session; an empty list allows all.
+    pub fn with_mcp_allow_only_agents(mut self, agents: &[String]) -> Self {
+        self.mcp_allow_only_agents = agents.to_vec();
+        self
+    }
+
 
     /// Origins allowed to access the MCP server cross-origin; see
     /// `cli::ServerArgs::mcp_allowed_origins`.
@@ -116,12 +129,13 @@ impl<R, W, L> ServerBuilder<R, W, L> {
         self
     }
 }
-
 impl<R, L> ServerBuilder<R, Unset, L> {
     pub fn with_http_addr(self, addr: &SocketAddr) -> ServerBuilder<R, SocketAddr, L> {
         ServerBuilder {
             mcp_addr: self.mcp_addr,
             mcp_base_url: self.mcp_base_url,
+            mcp_allow_only_agents: self.mcp_allow_only_agents,
+
             mcp_allowed_origins: self.mcp_allowed_origins,
             mcp_auth: self.mcp_auth,
             http_addr: *addr,
@@ -135,7 +149,6 @@ impl<R, L> ServerBuilder<R, Unset, L> {
         }
     }
 }
-
 impl<R, W> ServerBuilder<R, W, Unset> {
     pub fn with_leptos_options(
         self,
@@ -147,6 +160,8 @@ impl<R, W> ServerBuilder<R, W, Unset> {
             mcp_allowed_origins: self.mcp_allowed_origins,
             mcp_auth: self.mcp_auth,
             http_addr: self.http_addr,
+            mcp_allow_only_agents: self.mcp_allow_only_agents,
+
             leptos_options: options.clone(),
             shutdown: self.shutdown,
             task_cache: self.task_cache,
@@ -183,6 +198,8 @@ impl ServerBuilder<SocketAddr, SocketAddr, LeptosOptions> {
                 .expect("mcp_base_url must be set via with_mcp_base_url"),
             self.mcp_allowed_origins.clone(),
             self.mcp_auth,
+            self.mcp_allow_only_agents.clone(),
+
         ));
         #[cfg(feature = "test-control")]
         let test_control_service = match self.test_control_addr {

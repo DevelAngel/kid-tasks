@@ -54,6 +54,17 @@ pub struct ServerArgs {
     )]
     pub mcp_allowed_origins: Vec<Url>,
 
+    /// Agent names allowed to initialize an MCP session. Empty means all agents.
+    #[clap(
+        long = "mcp-allow-only-agent",
+        global = true,
+        env = "KID_MCP_ALLOW_ONLY_AGENTS",
+        value_name = "NAME",
+        value_delimiter = ','
+    )]
+    pub mcp_allow_only_agents: Vec<String>,
+
+
     /// TOML file listing OAuth clients allowed to authenticate against the
     /// MCP server (name, redirect URI, secret). If unset or empty, no client
     /// can complete the authorization flow; use --mcp-disable-oauth to skip
@@ -100,3 +111,28 @@ pub struct ServerArgs {
     )]
     pub test_control_addr: Option<SocketAddr>,
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::Parser;
+
+    #[test]
+    fn parses_comma_separated_allow_only_agents() {
+        let cli = Cli::try_parse_from([
+            "kid-server",
+            "--mcp-allow-only-agent",
+            "opencode,cursor-cli",
+            "--mcp-allow-only-agent",
+            "cursor-ide",
+        ])
+        .expect("valid agent allowlist arguments");
+
+        assert_eq!(
+            cli.server.mcp_allow_only_agents,
+            ["opencode", "cursor-cli", "cursor-ide"]
+        );
+    }
+}
+
