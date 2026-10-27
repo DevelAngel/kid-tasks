@@ -27,7 +27,7 @@ use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{
     CacheScope, CallToolResult, ContentBlock, ErrorData as McpError, Implementation,
     ListResourcesResult, PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResponse,
-    ReadResourceResult, Resource, ResourceContents, ResultType, ServerCapabilities, ServerInfo,
+    ReadResourceResult, Resource, ResourceContents, ResultType, ServerCapabilities, ServerConfig,
 };
 use rmcp::schemars::{self, JsonSchema};
 use rmcp::service::RequestContext;
@@ -283,8 +283,8 @@ impl McpServer {
 
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for McpService {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(
             ServerCapabilities::builder()
                 .enable_tools()
                 .enable_resources()

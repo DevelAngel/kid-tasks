@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use assert_fs::TempDir;
 use cucumber::World;
-use rmcp::model::{ClientCapabilities, ClientInfo, Implementation};
+use rmcp::model::{ClientCapabilities, ClientConfig, Implementation};
 use rmcp::service::RunningService;
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
@@ -22,7 +22,7 @@ pub struct AppWorld {
     /// [`AppWorld::mcp`] — most scenarios (e.g. pure browser navigation)
     /// never touch it, and eagerly connecting here would make every
     /// scenario pay for (and depend on) the OAuth handshake.
-    pub mcp: Option<RunningService<RoleClient, ClientInfo>>,
+    pub mcp: Option<RunningService<RoleClient, ClientConfig>>,
     /// HTTP client for the e2e test harness's admin channel
     /// (`switch_dir`/`count`/`set_time_offset`/`reset_time_offset`/`flush`).
     pub admin: reqwest::Client,
@@ -69,7 +69,7 @@ impl AppWorld {
 
     /// Returns the MCP client, connecting (incl. the OAuth handshake) on
     /// first use and caching the connection for the rest of the scenario.
-    pub async fn mcp(&mut self) -> Result<&RunningService<RoleClient, ClientInfo>> {
+    pub async fn mcp(&mut self) -> Result<&RunningService<RoleClient, ClientConfig>> {
         if self.mcp.is_none() {
             let access_token = oauth::fetch_access_token(MCP_ADDR).await?;
             let transport = StreamableHttpClientTransport::with_client(
@@ -77,7 +77,7 @@ impl AppWorld {
                 StreamableHttpClientTransportConfig::with_uri(format!("http://{MCP_ADDR}/mcp"))
                     .auth_header(access_token),
             );
-            let client_info = ClientInfo::new(
+            let client_info = ClientConfig::new(
                 ClientCapabilities::default(),
                 Implementation::new("kid-e2e", env!("CARGO_PKG_VERSION")),
             );
